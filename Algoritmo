@@ -1,0 +1,136 @@
+##Importando pacotes##
+
+import numpy as np
+import pandas as pd
+import scipy.stats as st
+
+##Importando os dados##
+a = pd.read_csv("C:/Users/Tamir/Desktop/p01.txt",sep = '\t', nrows = 5, delimiter = ':',skipinitialspace = True, header = None, names = ['thing', 'nb'])
+file_name = a.loc[0,'nb']
+sample_size = int(a.loc[1,'nb'])
+nb_attributes = int(a.loc[2,'nb'])
+type_vector = a.loc[3,'nb']
+type_vector = type_vector.split(' ')
+nb_classes = int(a.loc[4,'nb'])
+column_names = list()
+for i in range(nb_attributes+1):
+    column_names.append("attribute" + " " + str(i+1))
+column_names[nb_attributes] = 'class'
+data = pd.read_csv("C:/Users/Tamir/Desktop/p01.txt",sep = '\t', nrows = sample_size, delimiter = ' ',skiprows = 5, header = None,index_col = False, names = column_names)
+max_depth = 4
+root = [data]
+level_1 = [None,None]
+level_2 = [[None,None],[None,None]]
+level_3 = [[None,None],[None,None],[None,None],[None,None]]
+level_4 = [[None,None],[None,None],[None,None],[None,None],[None,None],[None,None],[None,None],[None,None]]
+tree = (root,level_1,level_2,level_3,level_4) 
+tree = list(tree) ##Essa é a árvore, e eu vou preencher ela
+
+#Funções pra calcular entropia, ganho informacional e de fato montar a árvore
+
+def entropy(leaf):
+    leaf_size = len(leaf)
+    entropy = 0
+    if leaf_size == 0:
+        return(entropy,leaf_size)
+    class_list = sorted(list(set(leaf['class'])))
+    for i in class_list:
+        class_size = len(data[data['class'] == i])
+        relative_size = class_size/leaf_size
+        entropy = entropy - relative_size*np.log(relative_size)
+    return(entropy,leaf_size)
+def infogain(parent,child_1,child_2):
+    parent_entropy = entropy(parent)[0]
+    child_1_info = entropy(child_1)
+    child_2_info = entropy(child_2)
+    child_1_size = child_1_info[1]
+    child_2_size = child_2_info[1]
+    child_1_entropy = child_1_info[0]
+    child_2_entropy = child_2_info[0]
+    infogain = 0
+    if child_1_size == 0:
+        child_1_size = 1
+    if child_2_size ==0:
+        child_2_size = 1
+    infogain = parent_entropy - (child_1_entropy/child_1_size) - (child_2_entropy/child_2_size)
+    return infogain
+def split(leaf,attribute):
+    column_name = "attribute" + " " + str(attribute+1)
+    possible_values = sorted(list(set(leaf[column_name])))
+    attribute_type = type_vector[attribute]
+    child1_list = list()
+    child2_list = list()
+    IG_list = list()
+    if attribute_type == 'C':
+        #print('atributo é C')
+        for i in possible_values:
+            child_1 = leaf[leaf[column_name]== i]
+            child_2 = leaf[leaf[column_name]!= i]
+            child1_list.append(child_1)
+            child2_list.append(child_2)
+            IG_list.append(infogain(leaf,child_1,child_2))
+    elif attribute_type == 'N':
+        #print('atributo é N')
+        #print('a lista de valores possíveis tem tamanho: ', len(possible_values))
+        for i in possible_values:
+            child_1 = leaf[leaf[column_name] >= i]
+            child_2 = leaf[leaf[column_name] < i]
+            child1_list.append(child_1)
+            child2_list.append(child_2)
+            IG_list.append(infogain(leaf,child_1,child_2))
+    IG = max(IG_list)
+    indice = IG_list.index(IG)
+    child_1 = child1_list[indice]
+    child_2 = child2_list[indice]
+    return (IG,child_1,child_2,attribute)
+def CART(tree,h,max_depth):
+    #Quero criar uma lista de atributos pra entender a construção dessa árvore.
+    #
+    lista_atributo = list()
+    while h < max_depth:
+        x = 2**(h-1)
+        if h == 0:
+            x = 1
+        a = 0
+        print("altura atual é ", h)
+        for j in range(x):
+            if h == 0:
+                complete_list = list()
+                infogain_list = list()
+                children_list = list()
+                for attribute in range(nb_attributes):
+                    complete_list.append(split(tree[h][j],attribute))
+                    infogain_list.append(complete_list[attribute][0])
+                indice = infogain_list.index(max(infogain_list))
+                child_1 = complete_list[indice][1]
+                child_2 = complete_list[indice][2]
+                children_list.append((child_1,child_2))
+                tree[1] = children_list
+                melhor_atributo = complete_list[indice][3]
+                lista_atributo.append(melhor_atributo)
+            else:
+                complete_list = list()
+                infogain_list = list()
+                children_list = list()
+                for i in range(2):
+                    for attribute in range(nb_attributes):
+                        complete_list.append(split(tree[h][j][i],attribute)) 
+                        infogain_list.append(complete_list[attribute][0])
+                    indice = infogain_list.index(max(infogain_list))
+                    child_1 = complete_list[indice][1]
+                    child_2 = complete_list[indice][2]
+                    children_list.append((child_1,child_2))
+                    melhor_atributo = complete_list[indice][3]
+                    lista_atributo.append(melhor_atributo)
+                    tree[h+1][a] = children_list[0]
+                    a = a + 1
+        h = h + 1
+        return(tree)
+
+CART(tree,0,4)
+
+
+##Problema: a árvore gerada está toda igual. 
+#tree[4] tem len 8, o que faz sentido, são oito duplinhas de filhos.
+#tree[4][0] tem 
+
